@@ -16,16 +16,11 @@ canvas { display: block; }
 #loader {
   position: fixed; inset: 0; background: #060606;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; transition: opacity 0.9s;
-  z-index: 10;
+  gap: 18px; transition: opacity 0.9s; z-index: 10;
 }
 #loader-title { color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; }
 #loader-bar-wrap { width: 120px; height: 1px; background: rgba(255,255,255,0.1); }
 #loader-bar { height: 1px; background: rgba(255,255,255,0.4); width: 0%; transition: width 0.1s; }
-#scroll-track {
-  position: fixed; right: 0; top: 0; width: 40px; height: 100vh;
-  cursor: ns-resize;
-}
 </style>
 </head>
 <body>
@@ -35,11 +30,9 @@ canvas { display: block; }
   <div id="loader-title">Konterfei</div>
   <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
 </div>
-<div id="scroll-track"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── Minimal GLTFLoader for r128 ──────────────────────────────────────────────
 (function(){
 class GLTFLoader {
   constructor(mgr){ this.manager = mgr || THREE.DefaultLoadingManager; }
@@ -50,19 +43,16 @@ class GLTFLoader {
   }
   parse(data, onLoad){
     const dv = new DataView(data);
-    const magic = String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3));
     let json, bin;
-    if(magic==='glTF'){
+    if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))==='glTF'){
       let off=12;
-      while(off < dv.byteLength - 8){
+      while(off < dv.byteLength-8){
         const len=dv.getUint32(off,true), type=dv.getUint32(off+4,true);
         if(type===0x4E4F534A) json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data,off+8,len)));
         if(type===0x004E4942) bin=data.slice(off+8,off+8+len);
         off+=8+len;
       }
-    } else {
-      json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data)));
-    }
+    } else { json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data))); }
     this._build(json, bin, onLoad);
   }
   _build(json, bin, onLoad){
@@ -94,27 +84,49 @@ class GLTFLoader {
       if(pbr.baseColorFactor) mat.color.setRGB(...pbr.baseColorFactor.slice(0,3));
       if(pbr.baseColorTexture){const t=threeTex[pbr.baseColorTexture.index];if(t) mat.map=t;}
       const n=(m.name||'').toLowerCase();
-      if(n.includes('cover')||n.includes('flap')){ mat.metalness=1.0; mat.roughness=0.05; mat.envMapIntensity=4.0; }
-      else if(n.includes('spine')){ mat.metalness=0.75; mat.roughness=0.18; }
+      if(n.includes('flap')||n.includes('cover')||n==='material.001'||n==='material.002'){
+        mat.metalness=1.0; mat.roughness=0.05; mat.envMapIntensity=4.5;
+      } else if(n.includes('spine')){ mat.metalness=0.8; mat.roughness=0.15; }
       return mat;
     });
 
     function buildGeo(meshDef){
-      const prim=meshDef.primitives[0], geo=new THREE.BufferGeometry();
-      const pos=getAcc(prim.attributes.POSITION);
-      geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
-      if(prim.attributes.NORMAL!==undefined){ const n=getAcc(prim.attributes.NORMAL); geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3)); }
-      if(prim.attributes.TEXCOORD_0!==undefined){ const uv=getAcc(prim.attributes.TEXCOORD_0); geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2)); }
-      if(prim.indices!==undefined){ const i=getAcc(prim.indices); geo.setIndex(new THREE.BufferAttribute(i instanceof Uint32Array?new Uint32Array(i):new Uint16Array(i),1)); }
-      if(!geo.attributes.normal) geo.computeVertexNormals();
-      return new THREE.Mesh(geo, prim.material!==undefined ? threeMats[prim.material] : new THREE.MeshStandardMaterial());
+      const geo=new THREE.BufferGeometry();
+      const prims=meshDef.primitives;
+      if(prims.length===1){
+        const p=prims[0];
+        const pos=getAcc(p.attributes.POSITION);
+        geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+        if(p.attributes.NORMAL!==undefined){const n=getAcc(p.attributes.NORMAL);geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));}
+        if(p.attributes.TEXCOORD_0!==undefined){const uv=getAcc(p.attributes.TEXCOORD_0);geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));}
+        if(p.indices!==undefined){const i=getAcc(p.indices);geo.setIndex(new THREE.BufferAttribute(i instanceof Uint32Array?new Uint32Array(i):new Uint16Array(i),1));}
+        if(!geo.attributes.normal) geo.computeVertexNormals();
+        return new THREE.Mesh(geo, p.material!==undefined?threeMats[p.material]:new THREE.MeshStandardMaterial());
+      }
+      // multi-primitive mesh
+      const group=new THREE.Group();
+      prims.forEach(p=>{
+        const g=new THREE.BufferGeometry();
+        const pos=getAcc(p.attributes.POSITION);
+        g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+        if(p.attributes.NORMAL!==undefined){const n=getAcc(p.attributes.NORMAL);g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));}
+        if(p.attributes.TEXCOORD_0!==undefined){const uv=getAcc(p.attributes.TEXCOORD_0);g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));}
+        if(p.indices!==undefined){const i=getAcc(p.indices);g.setIndex(new THREE.BufferAttribute(i instanceof Uint32Array?new Uint32Array(i):new Uint16Array(i),1));}
+        if(!g.attributes.normal) g.computeVertexNormals();
+        group.add(new THREE.Mesh(g, p.material!==undefined?threeMats[p.material]:new THREE.MeshStandardMaterial()));
+      });
+      return group;
     }
 
     function buildNode(i){
       const nd=nodes[i], obj=new THREE.Group();
       obj.name=nd.name||'';
-      if(nd.matrix){ obj.matrix.fromArray(nd.matrix); obj.matrix.decompose(obj.position,obj.quaternion,obj.scale); }
-      else{ if(nd.translation) obj.position.fromArray(nd.translation); if(nd.rotation) obj.quaternion.fromArray(nd.rotation); if(nd.scale) obj.scale.fromArray(nd.scale); }
+      if(nd.matrix){obj.matrix.fromArray(nd.matrix);obj.matrix.decompose(obj.position,obj.quaternion,obj.scale);}
+      else{
+        if(nd.translation) obj.position.fromArray(nd.translation);
+        if(nd.rotation)    obj.quaternion.fromArray(nd.rotation);
+        if(nd.scale)       obj.scale.fromArray(nd.scale);
+      }
       if(nd.mesh!==undefined) obj.add(buildGeo(meshes[nd.mesh]));
       (nd.children||[]).forEach(ci=>obj.add(buildNode(ci)));
       return obj;
@@ -130,187 +142,156 @@ window.GLTFLoader=GLTFLoader;
 </script>
 
 <script>
-// ── Renderer ────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.2;
+renderer.outputEncoding=THREE.sRGBEncoding;
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060606);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x060606);
 
-const camera = new THREE.PerspectiveCamera(40, 1, 0.001, 100);
-camera.position.set(0, 0.02, 0.65);
+const camera=new THREE.PerspectiveCamera(40,1,0.001,100);
+camera.position.set(0,0.01,0.65);
 
-// ── Lights ───────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-const dLight = new THREE.DirectionalLight(0xffffff, 1.8);
-dLight.position.set(2, 3, 3); scene.add(dLight);
-const pL1 = new THREE.PointLight(0xb8caff, 3.5, 5); pL1.position.set(-1.5,1,1.5); scene.add(pL1);
-const pL2 = new THREE.PointLight(0xffe0a0, 2.5, 5); pL2.position.set(1.5,-0.5,2); scene.add(pL2);
-const rLight = new THREE.DirectionalLight(0x99aaff, 0.7); rLight.position.set(-2,0,-1); scene.add(rLight);
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff,0.45));
+const dL=new THREE.DirectionalLight(0xffffff,1.8); dL.position.set(2,3,3); scene.add(dL);
+const pL1=new THREE.PointLight(0xb8caff,3.5,5); pL1.position.set(-1.5,1,1.5); scene.add(pL1);
+const pL2=new THREE.PointLight(0xffe0a0,2.5,5); pL2.position.set(1.5,-0.5,2); scene.add(pL2);
+const rL=new THREE.DirectionalLight(0x99aaff,0.7); rL.position.set(-2,0,-1); scene.add(rL);
 
-// Manual env map (replaces RoomEnvironment – works in r128)
+// Manual env (r128 compatible – no RoomEnvironment needed)
 (function(){
-  const size = 64;
-  const data = new Uint8Array(size*size*4);
+  const size=64, data=new Uint8Array(size*size*4);
   for(let y=0;y<size;y++) for(let x=0;x<size;x++){
-    const i=(y*size+x)*4;
-    const t=y/size;
-    data[i]   = Math.round(20+t*30);
-    data[i+1] = Math.round(20+t*30);
-    data[i+2] = Math.round(30+t*40);
-    data[i+3] = 255;
+    const i=(y*size+x)*4, t=y/size;
+    data[i]=Math.round(18+t*28); data[i+1]=Math.round(18+t*28); data[i+2]=Math.round(28+t*38); data[i+3]=255;
   }
-  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
   tex.needsUpdate=true;
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromEquirectangular(tex).texture;
+  const pmrem=new THREE.PMREMGenerator(renderer);
+  scene.environment=pmrem.fromEquirectangular(tex).texture;
   pmrem.dispose();
 })();
 
 function resize(){
-  const w=window.innerWidth, h=window.innerHeight;
+  const w=window.innerWidth,h=window.innerHeight;
   renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
 }
 resize(); window.addEventListener('resize',resize);
 
-// ── State ────────────────────────────────────────────────────────────────────
+// State
 let wrapper, indexFlap, backFlap;
-const pageNames = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','P9','P10'];
-const pageNodes = [];
+const pageNames=['p1','p2','p3','p4','p5','p6','p7','p8','p9','P9','P10'];
+const pageNodes=[];
+let scrollProg=0,targetScroll=0;
+let rotY=-0.28,rotX=0.1,tRotY=-0.28,tRotX=0.1;
+let isDrag=false,lx=0,ly=0,time=0,hinted=false;
 
-let scrollProg=0, targetScroll=0;
-let rotY=-0.28, rotX=0.1, tRotY=-0.28, tRotX=0.1;
-let isDrag=false, lx=0, ly=0, time=0, hinted=false, ready=false;
-
-// ── Scroll sections ──────────────────────────────────────────────────────────
-// 0.00 – 0.25  index flap opens
-// 0.20 – 0.45  back flap opens
-// 0.40 – 1.00  pages fan out (staggered)
-
-// ── Load GLB ─────────────────────────────────────────────────────────────────
+// Load
 new GLTFLoader().load('konterfei.glb',
-  ({scene: book}) => {
-    wrapper = new THREE.Group();
+  ({scene:book})=>{
+    wrapper=new THREE.Group();
     wrapper.add(book);
     scene.add(wrapper);
 
-    const box = new THREE.Box3().setFromObject(wrapper);
-    const cen = box.getCenter(new THREE.Vector3());
-    const sz  = box.getSize(new THREE.Vector3());
+    const box=new THREE.Box3().setFromObject(wrapper);
+    const cen=box.getCenter(new THREE.Vector3());
+    const sz=box.getSize(new THREE.Vector3());
     wrapper.position.sub(cen);
-    wrapper.scale.setScalar(0.48 / Math.max(sz.x, sz.y, sz.z));
+    wrapper.scale.setScalar(0.48/Math.max(sz.x,sz.y,sz.z));
 
-    book.traverse(o => {
-      if(o.name === 'index flap') indexFlap = o;
-      if(o.name === 'Back Flap')  backFlap  = o;
+    book.traverse(o=>{
+      if(o.name==='Index flap') indexFlap=o;
+      if(o.name==='Back Flap')  backFlap=o;
       if(pageNames.includes(o.name)) pageNodes.push(o);
     });
 
-    // Sort pages by their base Y position (p1 = top of stack)
-    pageNodes.sort((a,b) => b.position.y - a.position.y);
+    // store base Y for each page
+    pageNodes.sort((a,b)=>b.position.y-a.position.y);
+    pageNodes.forEach(p=>{ p.userData.baseY=p.position.y; });
 
-    const el = document.getElementById('loader');
+    const el=document.getElementById('loader');
     el.style.opacity='0';
-    setTimeout(()=>{ el.style.display='none'; ready=true; },900);
+    setTimeout(()=>el.style.display='none',900);
   },
-  xhr => {
-    if(xhr.total) document.getElementById('loader-bar').style.width = Math.round(xhr.loaded/xhr.total*100)+'%';
-  },
-  err => console.error('GLB load error:', err)
+  xhr=>{ if(xhr.total) document.getElementById('loader-bar').style.width=Math.round(xhr.loaded/xhr.total*100)+'%'; },
+  err=>console.error('GLB error:',err)
 );
 
-// ── Input ────────────────────────────────────────────────────────────────────
-window.addEventListener('wheel', e=>{
+// Input
+window.addEventListener('wheel',e=>{
   e.preventDefault();
-  targetScroll = Math.max(0, Math.min(1, targetScroll + e.deltaY * 0.0006));
-  if(!hinted){ document.getElementById('hint').style.opacity='0'; hinted=true; }
+  targetScroll=Math.max(0,Math.min(1,targetScroll+e.deltaY*0.0006));
+  if(!hinted){document.getElementById('hint').style.opacity='0';hinted=true;}
 },{passive:false});
 
-window.addEventListener('mousedown', e=>{ isDrag=true; lx=e.clientX; ly=e.clientY; });
-window.addEventListener('mouseup',   ()=>{ isDrag=false; });
-window.addEventListener('mousemove', e=>{
+window.addEventListener('mousedown',e=>{isDrag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>isDrag=false);
+window.addEventListener('mousemove',e=>{
   if(!isDrag) return;
-  tRotY += (e.clientX-lx)*0.008;
-  tRotX += (e.clientY-ly)*0.005;
-  tRotX  = Math.max(-0.55, Math.min(0.55, tRotX));
+  tRotY+=(e.clientX-lx)*0.008; tRotX+=(e.clientY-ly)*0.005;
+  tRotX=Math.max(-0.55,Math.min(0.55,tRotX));
   lx=e.clientX; ly=e.clientY;
 });
-
-window.addEventListener('touchstart', e=>{ isDrag=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY; },{passive:true});
-window.addEventListener('touchend',   ()=>{ isDrag=false; });
-window.addEventListener('touchmove',  e=>{
-  const dx=e.touches[0].clientX-lx, dy=e.touches[0].clientY-ly;
-  tRotY+=dx*0.008; tRotX+=dy*0.005;
+window.addEventListener('touchstart',e=>{isDrag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;},{passive:true});
+window.addEventListener('touchend',()=>isDrag=false);
+window.addEventListener('touchmove',e=>{
+  tRotY+=(e.touches[0].clientX-lx)*0.008;
+  tRotX+=(e.touches[0].clientY-ly)*0.005;
   tRotX=Math.max(-0.55,Math.min(0.55,tRotX));
   lx=e.touches[0].clientX; ly=e.touches[0].clientY;
 },{passive:true});
 
-// drag on scroll track
-const track = document.getElementById('scroll-track');
-let trackDrag=false, trackY=0;
-track.addEventListener('mousedown', e=>{ trackDrag=true; trackY=e.clientY; });
-window.addEventListener('mouseup', ()=>trackDrag=false);
-window.addEventListener('mousemove', e=>{
-  if(!trackDrag) return;
-  targetScroll=Math.max(0,Math.min(1, targetScroll+(e.clientY-trackY)*0.003));
-  trackY=e.clientY;
-});
+// Helpers
+function eio(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
+function remap(v,lo,hi){return Math.max(0,Math.min(1,(v-lo)/(hi-lo)));}
 
-// ── Easing ───────────────────────────────────────────────────────────────────
-function eio(t){ return t<0.5?2*t*t:-1+(4-2*t)*t; }
-function remap(v,lo,hi){ return Math.max(0,Math.min(1,(v-lo)/(hi-lo))); }
+// Animate
+// Scroll phases:
+// 0.00 – 0.28  → index flap opens
+// 0.15 – 0.42  → back flap opens
+// 0.38 – 1.00  → pages fan out staggered
+// 0.38 – 1.00  → camera pulls back slightly
 
-// ── Animate ──────────────────────────────────────────────────────────────────
 function animate(){
   requestAnimationFrame(animate);
   time+=0.004;
+  scrollProg+=(targetScroll-scrollProg)*0.05;
+  rotY+=(tRotY-rotY)*0.07;
+  rotX+=(tRotX-rotX)*0.07;
+  if(!isDrag) tRotY+=Math.sin(time*0.18)*0.0004;
 
-  scrollProg += (targetScroll-scrollProg)*0.048;
-  rotY += (tRotY-rotY)*0.07;
-  rotX += (tRotX-rotX)*0.07;
+  if(!wrapper){renderer.render(scene,camera);return;}
 
-  if(!isDrag && !trackDrag) tRotY += Math.sin(time*0.18)*0.0004;
+  wrapper.rotation.y=rotY;
+  wrapper.rotation.x=rotX;
 
-  if(!wrapper){ renderer.render(scene,camera); return; }
+  // Index flap
+  if(indexFlap) indexFlap.rotation.x=-eio(remap(scrollProg,0,0.28))*Math.PI*0.85;
 
-  wrapper.rotation.y = rotY;
-  wrapper.rotation.x = rotX;
+  // Back flap
+  if(backFlap) backFlap.rotation.x=eio(remap(scrollProg,0.15,0.42))*Math.PI*0.85;
 
-  // — index flap (front) opens 0→0.25
-  if(indexFlap) indexFlap.rotation.x = -eio(remap(scrollProg,0,0.25)) * Math.PI * 0.82;
-
-  // — back flap opens 0.18→0.42
-  if(backFlap) backFlap.rotation.x = eio(remap(scrollProg,0.18,0.42)) * Math.PI * 0.82;
-
-  // — pages fan out 0.35→1.0, staggered
-  const totalPages = pageNodes.length;
-  pageNodes.forEach((pg, i) => {
-    const delay = i / totalPages * 0.35;          // stagger offset
-    const start = 0.35 + delay;
-    const end   = start + 0.25;
-    const t     = eio(remap(scrollProg, start, end));
-    const spread = 0.022;                           // max spread per page
-    const baseY  = pg.userData._baseY ?? pg.position.y;
-    if(pg.userData._baseY === undefined) pg.userData._baseY = pg.position.y;
-
-    // fan upward + slight forward tilt
-    pg.position.y = baseY + t * spread * (totalPages - i);
-    pg.rotation.x = t * 0.12 * (i / totalPages);
+  // Pages fan
+  const total=pageNodes.length;
+  pageNodes.forEach((pg,i)=>{
+    const stagger=i/total*0.3;
+    const t=eio(remap(scrollProg,0.38+stagger,0.62+stagger));
+    pg.position.y=pg.userData.baseY+t*0.025*(total-i);
+    pg.rotation.x=t*0.1*(i/total);
   });
 
-  // — subtle camera z pull-back as pages open
-  const camPull = eio(remap(scrollProg, 0.35, 1.0)) * 0.12;
-  camera.position.z = 0.65 + camPull;
+  // Camera pull-back
+  camera.position.z=0.65+eio(remap(scrollProg,0.35,1.0))*0.15;
 
-  // — lights drift for iridescent shimmer on foil
-  pL1.position.x = Math.sin(time*0.38)*2.2;
-  pL1.position.y = Math.cos(time*0.27)*1.6;
-  pL2.position.x = Math.cos(time*0.32)*1.8;
-  pL2.position.z = 1.5 + Math.sin(time*0.2)*0.5;
+  // Light drift for foil shimmer
+  pL1.position.x=Math.sin(time*0.38)*2.2;
+  pL1.position.y=Math.cos(time*0.27)*1.6;
+  pL2.position.x=Math.cos(time*0.32)*1.8;
+  pL2.position.z=1.5+Math.sin(time*0.2)*0.5;
 
   renderer.render(scene,camera);
 }
