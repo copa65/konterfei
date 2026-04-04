@@ -5,171 +5,183 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Konterfei</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #060606; width: 100vw; height: 100vh; overflow: hidden; font-family: 'Helvetica Neue', sans-serif; }
-canvas { display: block; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#060606; width:100vw; height:100vh; overflow:hidden; }
+canvas { display:block; }
 #hint {
-  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-  color: rgba(255,255,255,0.25); font-size: 10px; letter-spacing: 0.18em;
-  text-transform: uppercase; pointer-events: none; transition: opacity 1.5s;
+  position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+  color:rgba(255,255,255,0.22); font-size:10px; letter-spacing:0.18em;
+  font-family:'Helvetica Neue',sans-serif; text-transform:uppercase;
+  pointer-events:none; transition:opacity 1.5s;
 }
 #loader {
-  position: fixed; inset: 0; background: #060606;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; transition: opacity 0.9s; z-index: 10;
+  position:fixed; inset:0; background:#060606; z-index:10;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  transition:opacity 0.9s;
 }
-#loader-title { color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; }
-#loader-bar-wrap { width: 120px; height: 1px; background: rgba(255,255,255,0.1); }
-#loader-bar { height: 1px; background: rgba(255,255,255,0.4); width: 0%; transition: width 0.1s; }
+#lt { color:rgba(255,255,255,0.35); font-size:11px; letter-spacing:0.3em; text-transform:uppercase; font-family:'Helvetica Neue',sans-serif; }
+#lbw { width:110px; height:1px; background:rgba(255,255,255,0.1); }
+#lb  { height:1px; background:rgba(255,255,255,0.4); width:0%; transition:width 0.1s; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hint">scroll to explore</div>
-<div id="loader">
-  <div id="loader-title">Konterfei</div>
-  <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
-</div>
+<div id="hint">scroll to explore · drag to rotate</div>
+<div id="loader"><div id="lt">Konterfei</div><div id="lbw"><div id="lb"></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ── Minimal GLTF loader (r128, handles WebP→JPEG already converted) ──────────
 (function(){
-class GLTFLoader {
-  constructor(mgr){ this.manager = mgr || THREE.DefaultLoadingManager; }
-  load(url, onLoad, onProgress, onError){
-    const fl = new THREE.FileLoader(this.manager);
-    fl.setResponseType('arraybuffer');
-    fl.load(url, buf => { try{ this.parse(buf, onLoad); }catch(e){ if(onError) onError(e); else console.error(e); } }, onProgress, onError);
-  }
-  parse(data, onLoad){
-    const dv = new DataView(data);
-    let json, bin;
-    if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))==='glTF'){
-      let off=12;
-      while(off < dv.byteLength-8){
-        const len=dv.getUint32(off,true), type=dv.getUint32(off+4,true);
-        if(type===0x4E4F534A) json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data,off+8,len)));
-        if(type===0x004E4942) bin=data.slice(off+8,off+8+len);
-        off+=8+len;
-      }
-    } else { json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data))); }
-    this._build(json, bin, onLoad);
-  }
-  _build(json, bin, onLoad){
-    const bvs=json.bufferViews||[], accs=json.accessors||[];
-    const imgs=json.images||[], texs=json.textures||[], mats=json.materials||[];
-    const meshes=json.meshes||[], nodes=json.nodes||[];
-    const cm={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
-    const sm={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
-
-    function getAcc(i){
-      const a=accs[i],bv=bvs[a.bufferView],off=(bv.byteOffset||0)+(a.byteOffset||0);
-      return new cm[a.componentType](bin,off,a.count*sm[a.type]);
+function GLTFLoader(mgr){ this.manager=mgr||THREE.DefaultLoadingManager; }
+GLTFLoader.prototype.load=function(url,onLoad,onProgress,onError){
+  const fl=new THREE.FileLoader(this.manager);
+  fl.setResponseType('arraybuffer');
+  fl.load(url,buf=>{try{this.parse(buf,onLoad);}catch(e){if(onError)onError(e);else console.error(e);}},onProgress,onError);
+};
+GLTFLoader.prototype.parse=function(data,onLoad){
+  const dv=new DataView(data); let json,bin;
+  if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))==='glTF'){
+    let off=12;
+    while(off<dv.byteLength-8){
+      const len=dv.getUint32(off,true),type=dv.getUint32(off+4,true);
+      if(type===0x4E4F534A) json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data,off+8,len)));
+      if(type===0x004E4942) bin=data.slice(off+8,off+8+len);
+      off+=8+len;
     }
+  } else json=JSON.parse(THREE.LoaderUtils.decodeText(new Uint8Array(data)));
+  this._build(json,bin,onLoad);
+};
+GLTFLoader.prototype._build=function(json,bin,onLoad){
+  const bvs=json.bufferViews||[],accs=json.accessors||[];
+  const imgs=json.images||[],texs=json.textures||[],mats=json.materials||[];
+  const meshDefs=json.meshes||[],nodeDefs=json.nodes||[];
+  const cm={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
+  const sm={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 
-    const threeTex = texs.map(t=>{
-      const img=imgs[t.source];
-      if(!img||img.bufferView===undefined) return null;
-      const bv=bvs[img.bufferView];
-      const blob=new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:img.mimeType||'image/png'});
-      const tex=new THREE.TextureLoader().load(URL.createObjectURL(blob));
-      tex.flipY=false; tex.encoding=THREE.sRGBEncoding; return tex;
-    });
-
-    const threeMats = mats.map(m=>{
-      const pbr=m.pbrMetallicRoughness||{};
-      const mat=new THREE.MeshStandardMaterial({name:m.name||''});
-      mat.metalness=pbr.metallicFactor??0;
-      mat.roughness=pbr.roughnessFactor??0.5;
-      if(pbr.baseColorFactor) mat.color.setRGB(...pbr.baseColorFactor.slice(0,3));
-      if(pbr.baseColorTexture){const t=threeTex[pbr.baseColorTexture.index];if(t) mat.map=t;}
-      const n=(m.name||'').toLowerCase();
-      if(n.includes('flap')||n.includes('cover')||n==='material.001'||n==='material.002'){
-        mat.metalness=1.0; mat.roughness=0.05; mat.envMapIntensity=4.5;
-      } else if(n.includes('spine')){ mat.metalness=0.8; mat.roughness=0.15; }
-      return mat;
-    });
-
-    function buildGeo(meshDef){
-      const geo=new THREE.BufferGeometry();
-      const prims=meshDef.primitives;
-      if(prims.length===1){
-        const p=prims[0];
-        const pos=getAcc(p.attributes.POSITION);
-        geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
-        if(p.attributes.NORMAL!==undefined){const n=getAcc(p.attributes.NORMAL);geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));}
-        if(p.attributes.TEXCOORD_0!==undefined){const uv=getAcc(p.attributes.TEXCOORD_0);geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));}
-        if(p.indices!==undefined){const i=getAcc(p.indices);geo.setIndex(new THREE.BufferAttribute(i instanceof Uint32Array?new Uint32Array(i):new Uint16Array(i),1));}
-        if(!geo.attributes.normal) geo.computeVertexNormals();
-        return new THREE.Mesh(geo, p.material!==undefined?threeMats[p.material]:new THREE.MeshStandardMaterial());
-      }
-      // multi-primitive mesh
-      const group=new THREE.Group();
-      prims.forEach(p=>{
-        const g=new THREE.BufferGeometry();
-        const pos=getAcc(p.attributes.POSITION);
-        g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
-        if(p.attributes.NORMAL!==undefined){const n=getAcc(p.attributes.NORMAL);g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));}
-        if(p.attributes.TEXCOORD_0!==undefined){const uv=getAcc(p.attributes.TEXCOORD_0);g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));}
-        if(p.indices!==undefined){const i=getAcc(p.indices);g.setIndex(new THREE.BufferAttribute(i instanceof Uint32Array?new Uint32Array(i):new Uint16Array(i),1));}
-        if(!g.attributes.normal) g.computeVertexNormals();
-        group.add(new THREE.Mesh(g, p.material!==undefined?threeMats[p.material]:new THREE.MeshStandardMaterial()));
-      });
-      return group;
-    }
-
-    function buildNode(i){
-      const nd=nodes[i], obj=new THREE.Group();
-      obj.name=nd.name||'';
-      if(nd.matrix){obj.matrix.fromArray(nd.matrix);obj.matrix.decompose(obj.position,obj.quaternion,obj.scale);}
-      else{
-        if(nd.translation) obj.position.fromArray(nd.translation);
-        if(nd.rotation)    obj.quaternion.fromArray(nd.rotation);
-        if(nd.scale)       obj.scale.fromArray(nd.scale);
-      }
-      if(nd.mesh!==undefined) obj.add(buildGeo(meshes[nd.mesh]));
-      (nd.children||[]).forEach(ci=>obj.add(buildNode(ci)));
-      return obj;
-    }
-
-    const root=new THREE.Group();
-    (json.scenes[json.scene||0].nodes||[]).forEach(ni=>root.add(buildNode(ni)));
-    onLoad({scene:root});
+  function acc(i){
+    const a=accs[i],bv=bvs[a.bufferView],off=(bv.byteOffset||0)+(a.byteOffset||0);
+    return new cm[a.componentType](bin,off,a.count*sm[a.type]);
   }
-}
+
+  // Load textures via blob URL
+  const tl=new THREE.TextureLoader();
+  const threeTex=texs.map(t=>{
+    const img=imgs[t.source];
+    if(!img||img.bufferView===undefined) return null;
+    const bv=bvs[img.bufferView];
+    const mime=img.mimeType||'image/jpeg';
+    const blob=new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:mime});
+    const url=URL.createObjectURL(blob);
+    const tex=tl.load(url);
+    tex.flipY=false; tex.encoding=THREE.sRGBEncoding;
+    return tex;
+  });
+
+  // Materials
+  const threeMats=mats.map(m=>{
+    const pbr=m.pbrMetallicRoughness||{};
+    const mat=new THREE.MeshStandardMaterial({name:m.name||''});
+    mat.metalness=pbr.metallicFactor??0;
+    mat.roughness=pbr.roughnessFactor??0.5;
+    if(pbr.baseColorFactor) mat.color.setRGB(pbr.baseColorFactor[0],pbr.baseColorFactor[1],pbr.baseColorFactor[2]);
+    if(pbr.baseColorTexture!=null){
+      const t=threeTex[pbr.baseColorTexture.index];
+      if(t){mat.map=t;}
+    }
+    // Override for foil/cover materials
+    const n=(m.name||'').toLowerCase();
+    if(n.includes('flap')||n==='material.001'||n==='material.002'||n.includes('cover')){
+      mat.metalness=0.95; mat.roughness=0.08; mat.envMapIntensity=3.5;
+    } else if(n.includes('spine')){
+      mat.metalness=0.7; mat.roughness=0.2;
+    }
+    return mat;
+  });
+
+  // Build geometry from primitive
+  function primToMesh(prim){
+    const geo=new THREE.BufferGeometry();
+    const pos=acc(prim.attributes.POSITION);
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+    if(prim.attributes.NORMAL!==undefined){
+      const n=acc(prim.attributes.NORMAL);
+      geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));
+    }
+    if(prim.attributes.TEXCOORD_0!==undefined){
+      const uv=acc(prim.attributes.TEXCOORD_0);
+      geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));
+    }
+    if(prim.indices!==undefined){
+      const idx=acc(prim.indices);
+      geo.setIndex(new THREE.BufferAttribute(idx instanceof Uint32Array?new Uint32Array(idx):new Uint16Array(idx),1));
+    }
+    if(!geo.attributes.normal) geo.computeVertexNormals();
+    const mat=prim.material!=null?threeMats[prim.material]:new THREE.MeshStandardMaterial();
+    return new THREE.Mesh(geo,mat);
+  }
+
+  function buildNode(i){
+    const nd=nodeDefs[i],obj=new THREE.Group();
+    obj.name=nd.name||'';
+    if(nd.matrix){obj.matrix.fromArray(nd.matrix);obj.matrix.decompose(obj.position,obj.quaternion,obj.scale);}
+    else{
+      if(nd.translation) obj.position.fromArray(nd.translation);
+      if(nd.rotation)    obj.quaternion.fromArray(nd.rotation);
+      if(nd.scale)       obj.scale.fromArray(nd.scale);
+    }
+    if(nd.mesh!=null){
+      const prims=meshDefs[nd.mesh].primitives;
+      if(prims.length===1){ obj.add(primToMesh(prims[0])); }
+      else prims.forEach(p=>obj.add(primToMesh(p)));
+    }
+    (nd.children||[]).forEach(ci=>obj.add(buildNode(ci)));
+    return obj;
+  }
+
+  const root=new THREE.Group();
+  (json.scenes[json.scene||0].nodes||[]).forEach(ni=>root.add(buildNode(ni)));
+  onLoad({scene:root});
+};
 window.GLTFLoader=GLTFLoader;
 })();
 </script>
 
 <script>
+// ── Renderer ─────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.2;
+renderer.toneMappingExposure=1.15;
 renderer.outputEncoding=THREE.sRGBEncoding;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x060606);
 
 const camera=new THREE.PerspectiveCamera(40,1,0.001,100);
-camera.position.set(0,0.01,0.65);
+camera.position.set(0,0.08,0.7);
+camera.lookAt(0,0,0);
 
-// Lights
-scene.add(new THREE.AmbientLight(0xffffff,0.45));
-const dL=new THREE.DirectionalLight(0xffffff,1.8); dL.position.set(2,3,3); scene.add(dL);
-const pL1=new THREE.PointLight(0xb8caff,3.5,5); pL1.position.set(-1.5,1,1.5); scene.add(pL1);
-const pL2=new THREE.PointLight(0xffe0a0,2.5,5); pL2.position.set(1.5,-0.5,2); scene.add(pL2);
-const rL=new THREE.DirectionalLight(0x99aaff,0.7); rL.position.set(-2,0,-1); scene.add(rL);
+// ── Lights ────────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const dL=new THREE.DirectionalLight(0xffffff,1.6);
+dL.position.set(2,3,3); scene.add(dL);
+const pL1=new THREE.PointLight(0xc0d0ff,3.0,6);
+pL1.position.set(-1.5,1,1.5); scene.add(pL1);
+const pL2=new THREE.PointLight(0xffe8b0,2.5,6);
+pL2.position.set(1.5,-0.5,2); scene.add(pL2);
+const rL=new THREE.DirectionalLight(0x8899ff,0.6);
+rL.position.set(-2,0,-1); scene.add(rL);
 
-// Manual env (r128 compatible – no RoomEnvironment needed)
+// Manual env map (r128 safe)
 (function(){
-  const size=64, data=new Uint8Array(size*size*4);
-  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
-    const i=(y*size+x)*4, t=y/size;
-    data[i]=Math.round(18+t*28); data[i+1]=Math.round(18+t*28); data[i+2]=Math.round(28+t*38); data[i+3]=255;
+  const sz=64, d=new Uint8Array(sz*sz*4);
+  for(let y=0;y<sz;y++) for(let x=0;x<sz;x++){
+    const i=(y*sz+x)*4,t=y/sz;
+    d[i]=Math.round(15+t*25);d[i+1]=Math.round(15+t*25);d[i+2]=Math.round(25+t*35);d[i+3]=255;
   }
-  const tex=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
+  const tex=new THREE.DataTexture(d,sz,sz,THREE.RGBAFormat);
   tex.needsUpdate=true;
   const pmrem=new THREE.PMREMGenerator(renderer);
   scene.environment=pmrem.fromEquirectangular(tex).texture;
@@ -182,49 +194,60 @@ function resize(){
 }
 resize(); window.addEventListener('resize',resize);
 
-// State
-let wrapper, indexFlap, backFlap;
-const pageNames=['p1','p2','p3','p4','p5','p6','p7','p8','p9','P9','P10'];
-const pageNodes=[];
-let scrollProg=0,targetScroll=0;
-let rotY=-0.28,rotX=0.1,tRotY=-0.28,tRotX=0.1;
-let isDrag=false,lx=0,ly=0,time=0,hinted=false;
+// ── Book nodes ────────────────────────────────────────────────────────────────
+let wrapper=null;
+let indexFlap=null, backFlap=null;
+const pageNodes=[]; // p1..P10 sorted front→back
 
-// Load
+// ── Scroll & drag state ───────────────────────────────────────────────────────
+let scroll=0, tScroll=0;
+let rotY=-0.3, rotX=0.12, tRotY=-0.3, tRotX=0.12;
+let isDrag=false, lx=0, ly=0, time=0, hinted=false;
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+const PAGE_NAMES=['p1','p2','p3','p4','p5','p6','p7','p8','p9','P9','P10'];
+
 new GLTFLoader().load('konterfei.glb',
   ({scene:book})=>{
     wrapper=new THREE.Group();
     wrapper.add(book);
     scene.add(wrapper);
 
+    // Normalize size & center
     const box=new THREE.Box3().setFromObject(wrapper);
     const cen=box.getCenter(new THREE.Vector3());
     const sz=box.getSize(new THREE.Vector3());
     wrapper.position.sub(cen);
-    wrapper.scale.setScalar(0.48/Math.max(sz.x,sz.y,sz.z));
+    wrapper.scale.setScalar(0.46/Math.max(sz.x,sz.y,sz.z));
 
+    // Collect nodes
     book.traverse(o=>{
       if(o.name==='Index flap') indexFlap=o;
       if(o.name==='Back Flap')  backFlap=o;
-      if(pageNames.includes(o.name)) pageNodes.push(o);
+      if(PAGE_NAMES.includes(o.name)) pageNodes.push(o);
     });
 
-    // store base Y for each page
+    // Sort pages by Y descending (p1 = top of stack = opens first visually)
     pageNodes.sort((a,b)=>b.position.y-a.position.y);
-    pageNodes.forEach(p=>{ p.userData.baseY=p.position.y; });
+    // Store base positions
+    pageNodes.forEach(p=>{
+      p.userData.basePos=p.position.clone();
+      p.userData.baseRot=p.rotation.clone();
+    });
 
+    // Fade loader
     const el=document.getElementById('loader');
     el.style.opacity='0';
     setTimeout(()=>el.style.display='none',900);
   },
-  xhr=>{ if(xhr.total) document.getElementById('loader-bar').style.width=Math.round(xhr.loaded/xhr.total*100)+'%'; },
-  err=>console.error('GLB error:',err)
+  xhr=>{ if(xhr.total) document.getElementById('lb').style.width=Math.round(xhr.loaded/xhr.total*100)+'%'; },
+  err=>console.error('GLB:',err)
 );
 
-// Input
+// ── Input ──────────────────────────────────────────────────────────────────────
 window.addEventListener('wheel',e=>{
   e.preventDefault();
-  targetScroll=Math.max(0,Math.min(1,targetScroll+e.deltaY*0.0006));
+  tScroll=Math.max(0,Math.min(1,tScroll+e.deltaY*0.00055));
   if(!hinted){document.getElementById('hint').style.opacity='0';hinted=true;}
 },{passive:false});
 
@@ -232,66 +255,78 @@ window.addEventListener('mousedown',e=>{isDrag=true;lx=e.clientX;ly=e.clientY;})
 window.addEventListener('mouseup',()=>isDrag=false);
 window.addEventListener('mousemove',e=>{
   if(!isDrag) return;
-  tRotY+=(e.clientX-lx)*0.008; tRotX+=(e.clientY-ly)*0.005;
-  tRotX=Math.max(-0.55,Math.min(0.55,tRotX));
+  tRotY+=(e.clientX-lx)*0.009;
+  tRotX+=(e.clientY-ly)*0.006;
+  tRotX=Math.max(-0.6,Math.min(0.6,tRotX));
   lx=e.clientX; ly=e.clientY;
 });
 window.addEventListener('touchstart',e=>{isDrag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;},{passive:true});
 window.addEventListener('touchend',()=>isDrag=false);
 window.addEventListener('touchmove',e=>{
-  tRotY+=(e.touches[0].clientX-lx)*0.008;
-  tRotX+=(e.touches[0].clientY-ly)*0.005;
-  tRotX=Math.max(-0.55,Math.min(0.55,tRotX));
+  tRotY+=(e.touches[0].clientX-lx)*0.009;
+  tRotX+=(e.touches[0].clientY-ly)*0.006;
+  tRotX=Math.max(-0.6,Math.min(0.6,tRotX));
   lx=e.touches[0].clientX; ly=e.touches[0].clientY;
 },{passive:true});
 
-// Helpers
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function eio(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
 function remap(v,lo,hi){return Math.max(0,Math.min(1,(v-lo)/(hi-lo)));}
 
-// Animate
-// Scroll phases:
-// 0.00 – 0.28  → index flap opens
-// 0.15 – 0.42  → back flap opens
-// 0.38 – 1.00  → pages fan out staggered
-// 0.38 – 1.00  → camera pulls back slightly
+// ── Animate ───────────────────────────────────────────────────────────────────
+// Scroll timeline:
+// 0.00 – 0.30  → Index flap opens upward (rotates around top edge)
+// 0.15 – 0.45  → Back flap opens downward
+// 0.35 – 1.00  → Pages fan open staggered, each rotating around spine edge
 
 function animate(){
   requestAnimationFrame(animate);
   time+=0.004;
-  scrollProg+=(targetScroll-scrollProg)*0.05;
+
+  scroll+=(tScroll-scroll)*0.05;
   rotY+=(tRotY-rotY)*0.07;
   rotX+=(tRotX-rotX)*0.07;
   if(!isDrag) tRotY+=Math.sin(time*0.18)*0.0004;
 
-  if(!wrapper){renderer.render(scene,camera);return;}
+  if(!wrapper){ renderer.render(scene,camera); return; }
 
   wrapper.rotation.y=rotY;
   wrapper.rotation.x=rotX;
 
-  // Index flap
-  if(indexFlap) indexFlap.rotation.x=-eio(remap(scrollProg,0,0.28))*Math.PI*0.85;
+  // Index flap: rotates upward around its top edge
+  if(indexFlap){
+    const t=eio(remap(scroll,0,0.30));
+    indexFlap.rotation.x=-t*Math.PI*0.82;
+  }
 
-  // Back flap
-  if(backFlap) backFlap.rotation.x=eio(remap(scrollProg,0.15,0.42))*Math.PI*0.85;
+  // Back flap: rotates downward
+  if(backFlap){
+    const t=eio(remap(scroll,0.15,0.45));
+    backFlap.rotation.x=t*Math.PI*0.82;
+  }
 
-  // Pages fan
-  const total=pageNodes.length;
+  // Pages: fan out like real book pages rotating around spine
+  const n=pageNodes.length;
   pageNodes.forEach((pg,i)=>{
-    const stagger=i/total*0.3;
-    const t=eio(remap(scrollProg,0.38+stagger,0.62+stagger));
-    pg.position.y=pg.userData.baseY+t*0.025*(total-i);
-    pg.rotation.x=t*0.1*(i/total);
+    const bp=pg.userData.basePos;
+    if(!bp) return;
+    const delay=i/n*0.28;
+    const t=eio(remap(scroll,0.35+delay,0.60+delay));
+    // Lift upward + slight tilt to simulate page turning
+    pg.position.y=bp.y+t*0.03*(n-i)/n;
+    pg.position.z=bp.z+t*0.008*i/n;
+    pg.rotation.x=t*0.15*(i/n);
   });
 
-  // Camera pull-back
-  camera.position.z=0.65+eio(remap(scrollProg,0.35,1.0))*0.15;
+  // Subtle camera pull-back when pages open
+  camera.position.z=0.70+eio(remap(scroll,0.3,1.0))*0.18;
+  camera.position.y=0.08+eio(remap(scroll,0.3,1.0))*0.04;
 
   // Light drift for foil shimmer
-  pL1.position.x=Math.sin(time*0.38)*2.2;
-  pL1.position.y=Math.cos(time*0.27)*1.6;
-  pL2.position.x=Math.cos(time*0.32)*1.8;
-  pL2.position.z=1.5+Math.sin(time*0.2)*0.5;
+  pL1.position.x=Math.sin(time*0.36)*2.5;
+  pL1.position.y=Math.cos(time*0.25)*1.8;
+  pL2.position.x=Math.cos(time*0.31)*2.0;
+  pL2.position.z=1.5+Math.sin(time*0.19)*0.6;
 
   renderer.render(scene,camera);
 }
