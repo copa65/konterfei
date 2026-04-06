@@ -5,391 +5,463 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Konterfei</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-:root {
-  --bg: #0a0a0a;
-  --surface: #111;
-  --text: rgba(255,255,255,0.5);
-  --accent: rgba(255,255,255,0.12);
-}
+* { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  height: 100vh;
+  background: #0a0a0a;
+  width: 100vw; height: 100vh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  font-family: 'Helvetica Neue', sans-serif;
+  user-select: none;
 }
 
-/* ── Header ─────────────────────────────────────────────── */
+/* ── Header ──────────────────────────────────────────────── */
 #header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 48px;
+  position: fixed; top: 0; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; z-index: 50;
+}
+#title { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.25); }
+#pageinfo { font-size: 10px; letter-spacing: 0.1em; color: rgba(255,255,255,0.2); font-variant-numeric: tabular-nums; }
+
+/* ── Progress ────────────────────────────────────────────── */
+#progress {
+  position: fixed; top: 0; left: 0; height: 1px;
+  background: rgba(255,255,255,0.25); width: 0%; z-index: 51;
+  transition: width 0.3s ease;
+}
+
+/* ── Book stage ──────────────────────────────────────────── */
+#stage {
+  width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  perspective: 2000px;
+}
+
+#book {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  z-index: 100;
-  background: linear-gradient(to bottom, var(--bg), transparent);
+  transform-style: preserve-3d;
 }
 
-#title {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.35);
+/* Shadow under book */
+#book::after {
+  content: '';
+  position: absolute;
+  bottom: -20px; left: 10%; right: 10%; height: 20px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
 }
-
-#page-info {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.25);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Progress bar ────────────────────────────────────────── */
-#progress-bar {
-  position: fixed;
-  top: 0; left: 0;
-  height: 1px;
-  background: rgba(255,255,255,0.3);
-  width: 0%;
-  z-index: 101;
-  transition: width 0.1s;
-}
-
-/* ── Scroll container ────────────────────────────────────── */
-#scroll-container {
-  flex: 1;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-  padding: 64px 0 80px;
-  -webkit-overflow-scrolling: touch;
-}
-
-#scroll-container::-webkit-scrollbar { width: 3px; }
-#scroll-container::-webkit-scrollbar-track { background: transparent; }
-#scroll-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
 /* ── Pages ───────────────────────────────────────────────── */
-#pages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.page-wrapper {
+.page-side {
   position: relative;
-  width: 100%;
-  max-width: 680px;
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
-
-.page-wrapper.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.page-wrapper canvas {
-  display: block;
-  width: 100% !important;
-  height: auto !important;
+  overflow: hidden;
   background: #fff;
 }
 
-/* ── Loader ──────────────────────────────────────────────── */
-#loader {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  z-index: 200;
-  transition: opacity 0.8s;
+#left-page  { border-radius: 2px 0 0 2px; box-shadow: -4px 4px 20px rgba(0,0,0,0.4); }
+#right-page { border-radius: 0 2px 2px 0; box-shadow:  4px 4px 20px rgba(0,0,0,0.4); }
+
+/* Spine shadow */
+#left-page::after {
+  content: '';
+  position: absolute; top: 0; right: 0; width: 20px; height: 100%;
+  background: linear-gradient(to left, rgba(0,0,0,0.15), transparent);
+  pointer-events: none; z-index: 2;
+}
+#right-page::before {
+  content: '';
+  position: absolute; top: 0; left: 0; width: 20px; height: 100%;
+  background: linear-gradient(to right, rgba(0,0,0,0.15), transparent);
+  pointer-events: none; z-index: 2;
 }
 
-#loader-title {
-  font-size: 11px;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.3);
+.page-side canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-#loader-track {
-  width: 140px;
-  height: 1px;
-  background: rgba(255,255,255,0.08);
+/* ── Flipping page ───────────────────────────────────────── */
+#flip-container {
+  position: absolute;
+  top: 0;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 10;
 }
 
-#loader-fill {
-  height: 1px;
-  background: rgba(255,255,255,0.35);
-  width: 0%;
-  transition: width 0.15s;
+#flip-front, #flip-back {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  background: #fff;
 }
 
-#loader-pages {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.2);
+#flip-front { border-radius: 0 2px 2px 0; }
+#flip-back  {
+  border-radius: 2px 0 0 2px;
+  transform: rotateY(180deg);
 }
 
-/* ── Footer nav ──────────────────────────────────────────── */
-#footer {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
-  background: linear-gradient(to top, var(--bg), transparent);
-  z-index: 100;
+#flip-front canvas, #flip-back canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-.nav-btn {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.3);
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  cursor: pointer;
-  padding: 8px 16px;
+/* Curl gradient on flipping page */
+#flip-front::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to left, rgba(0,0,0,0.12), transparent 40%);
+  pointer-events: none;
+}
+#flip-back::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.1), transparent 40%);
+  pointer-events: none;
+}
+
+/* ── Nav arrows ──────────────────────────────────────────── */
+.arrow-btn {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.2); font-size: 20px;
+  padding: 20px 16px; z-index: 50;
   transition: color 0.2s;
 }
-.nav-btn:hover { color: rgba(255,255,255,0.7); }
+.arrow-btn:hover { color: rgba(255,255,255,0.6); }
+#btn-prev { left: 8px; }
+#btn-next { right: 8px; }
 
-#page-input {
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.4);
-  font-size: 11px;
-  font-family: inherit;
-  width: 48px;
-  text-align: center;
-  padding: 4px 0;
-  outline: none;
+/* ── Loader ──────────────────────────────────────────────── */
+#loader {
+  position: fixed; inset: 0; background: #0a0a0a; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  transition: opacity 0.8s;
 }
-#page-input:focus { border-bottom-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); }
+#loader-name { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+#loader-track { width: 130px; height: 1px; background: rgba(255,255,255,0.08); }
+#loader-fill  { height: 1px; background: rgba(255,255,255,0.35); width: 0%; transition: width 0.1s; }
+#loader-pct   { font-size: 10px; letter-spacing: 0.1em; color: rgba(255,255,255,0.18); }
+
+/* ── Hint ────────────────────────────────────────────────── */
+#hint {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: rgba(255,255,255,0.18); pointer-events: none; transition: opacity 1s;
+}
 </style>
 </head>
 <body>
 
-<div id="progress-bar"></div>
-
+<div id="progress"></div>
 <div id="header">
   <div id="title">Konterfei</div>
-  <div id="page-info">— / —</div>
+  <div id="pageinfo">— / —</div>
 </div>
 
-<div id="scroll-container">
-  <div id="pages"></div>
+<div id="stage">
+  <div id="book">
+    <div class="page-side" id="left-page"><canvas id="canvas-left"></canvas></div>
+    <div class="page-side" id="right-page"><canvas id="canvas-right"></canvas></div>
+    <div id="flip-container">
+      <div id="flip-front"><canvas id="canvas-flip-front"></canvas></div>
+      <div id="flip-back"><canvas id="canvas-flip-back"></canvas></div>
+    </div>
+  </div>
 </div>
 
-<div id="footer">
-  <button class="nav-btn" id="btn-prev">← Prev</button>
-  <input type="number" id="page-input" min="1" placeholder="—">
-  <button class="nav-btn" id="btn-next">Next →</button>
-</div>
+<button class="arrow-btn" id="btn-prev">&#8592;</button>
+<button class="arrow-btn" id="btn-next">&#8594;</button>
+<div id="hint">scroll or use arrows to turn pages</div>
 
 <div id="loader">
-  <div id="loader-title">Konterfei</div>
+  <div id="loader-name">Konterfei</div>
   <div id="loader-track"><div id="loader-fill"></div></div>
-  <div id="loader-pages">Loading…</div>
+  <div id="loader-pct">Loading…</div>
 </div>
 
-<!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ── Config ────────────────────────────────────────────────
-// PDF Dateiname – muss im gleichen Ordner wie index.html liegen
-const PDF_FILE = 'konterfei.pdf';
-const RENDER_SCALE = 2.0; // höher = schärfer, aber langsamer
+const PDF_FILE   = 'konterfei.pdf';
+const SCALE      = window.devicePixelRatio > 1 ? 2.5 : 1.8;
+const FLIP_MS    = 600; // animation duration in ms
 
 // ── State ─────────────────────────────────────────────────
-let pdfDoc = null;
-let totalPages = 0;
-let currentPage = 1;
-const renderedPages = new Set();
-const pageElements = [];
+let pdf         = null;
+let totalPages  = 0;
+let spread      = 0;       // current spread index (0 = pages 1+2, 1 = pages 3+4 …)
+let totalSpreads = 0;
+let isFlipping  = false;
+let pageCache   = {};      // pageNum → ImageBitmap
 
-// ── Intersection Observer für lazy rendering ───────────────
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      const wrapper = entry.target;
-      wrapper.classList.add('visible');
-      const pageNum = parseInt(wrapper.dataset.page);
-      if (!renderedPages.has(pageNum)) renderPage(pageNum);
-    }
-  });
-}, { rootMargin: '200px 0px', threshold: 0.01 });
+// ── DOM refs ──────────────────────────────────────────────
+const bookEl      = document.getElementById('book');
+const leftPage    = document.getElementById('left-page');
+const rightPage   = document.getElementById('right-page');
+const flipCont    = document.getElementById('flip-container');
+const canvasL     = document.getElementById('canvas-left');
+const canvasR     = document.getElementById('canvas-right');
+const canvasFF    = document.getElementById('canvas-flip-front');
+const canvasFB    = document.getElementById('canvas-flip-back');
+
+// ── Size ──────────────────────────────────────────────────
+let pageW = 0, pageH = 0;
+
+function setBookSize(vpW, vpH) {
+  const maxW = Math.min(vpW * 0.42, 420);
+  const maxH = vpH * 0.88;
+  const ar   = pageH / pageW;
+  let w = maxW, h = w * ar;
+  if (h > maxH) { h = maxH; w = h / ar; }
+  pageW = w; pageH = h;
+
+  leftPage.style.width  = rightPage.style.width  = w + 'px';
+  leftPage.style.height = rightPage.style.height = h + 'px';
+  flipCont.style.width  = w + 'px';
+  flipCont.style.height = h + 'px';
+  flipCont.style.left   = w + 'px'; // starts at right edge of left page
+}
 
 // ── Load PDF ──────────────────────────────────────────────
-async function loadPDF() {
-  try {
-    const loadingTask = pdfjsLib.getDocument({
-      url: PDF_FILE,
-      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-      cMapPacked: true,
-    });
+async function init() {
+  const task = pdfjsLib.getDocument({
+    url: PDF_FILE,
+    cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+    cMapPacked: true,
+  });
 
-    loadingTask.onProgress = (data) => {
-      if (data.total) {
-        const pct = Math.round(data.loaded / data.total * 100);
-        document.getElementById('loader-fill').style.width = pct + '%';
-        document.getElementById('loader-pages').textContent = `${pct}%`;
-      }
-    };
-
-    pdfDoc = await loadingTask.promise;
-    totalPages = pdfDoc.numPages;
-
-    document.getElementById('loader-pages').textContent = `${totalPages} Seiten`;
-    document.getElementById('page-input').max = totalPages;
-    document.getElementById('page-input').placeholder = '1';
-
-    buildPageStructure();
-
-    const loader = document.getElementById('loader');
-    loader.style.opacity = '0';
-    setTimeout(() => loader.style.display = 'none', 800);
-
-  } catch (err) {
-    document.getElementById('loader-pages').textContent = 'PDF nicht gefunden';
-    console.error('PDF load error:', err);
-  }
-}
-
-// ── Build empty page slots ────────────────────────────────
-async function buildPageStructure() {
-  const container = document.getElementById('pages');
-
-  // Get first page to know dimensions
-  const firstPage = await pdfDoc.getPage(1);
-  const viewport = firstPage.getViewport({ scale: 1 });
-  const aspectRatio = viewport.height / viewport.width;
-
-  for (let i = 1; i <= totalPages; i++) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'page-wrapper';
-    wrapper.dataset.page = i;
-
-    // Placeholder canvas with correct aspect ratio
-    const canvas = document.createElement('canvas');
-    canvas.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
-    wrapper.appendChild(canvas);
-    container.appendChild(wrapper);
-    pageElements[i] = wrapper;
-    observer.observe(wrapper);
-  }
-
-  // Render first 3 pages immediately
-  for (let i = 1; i <= Math.min(3, totalPages); i++) {
-    pageElements[i].classList.add('visible');
-    renderPage(i);
-  }
-
-  setupScrollTracking();
-}
-
-// ── Render single page ─────────────────────────────────────
-async function renderPage(pageNum) {
-  if (renderedPages.has(pageNum) || !pdfDoc) return;
-  renderedPages.add(pageNum);
-
-  try {
-    const page = await pdfDoc.getPage(pageNum);
-    const wrapper = pageElements[pageNum];
-    const canvas = wrapper.querySelector('canvas');
-    const ctx = canvas.getContext('2d');
-
-    const containerWidth = Math.min(wrapper.clientWidth || 680, 680);
-    const viewport = page.getViewport({ scale: 1 });
-    const scale = (containerWidth / viewport.width) * RENDER_SCALE;
-    const scaledViewport = page.getViewport({ scale });
-
-    canvas.width = scaledViewport.width;
-    canvas.height = scaledViewport.height;
-
-    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
-  } catch (err) {
-    renderedPages.delete(pageNum);
-    console.warn('Render error page', pageNum, err);
-  }
-}
-
-// ── Scroll tracking ───────────────────────────────────────
-function setupScrollTracking() {
-  const scrollEl = document.getElementById('scroll-container');
-
-  scrollEl.addEventListener('scroll', () => {
-    const scrollTop = scrollEl.scrollTop;
-    const scrollHeight = scrollEl.scrollHeight - scrollEl.clientHeight;
-    const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
-
-    // Progress bar
-    document.getElementById('progress-bar').style.width = (progress * 100) + '%';
-
-    // Current page detection
-    for (let i = totalPages; i >= 1; i--) {
-      const el = pageElements[i];
-      if (!el) continue;
-      if (el.offsetTop - 80 <= scrollTop) {
-        currentPage = i;
-        break;
-      }
+  task.onProgress = d => {
+    if (d.total) {
+      const p = Math.round(d.loaded / d.total * 100);
+      document.getElementById('loader-fill').style.width = p + '%';
+      document.getElementById('loader-pct').textContent  = p + '%';
     }
-    updatePageInfo();
-  }, { passive: true });
+  };
+
+  pdf = await task.promise;
+  totalPages   = pdf.numPages;
+  totalSpreads = Math.ceil(totalPages / 2);
+
+  // Get page dimensions from page 1
+  const p1 = await pdf.getPage(1);
+  const vp = p1.getViewport({ scale: 1 });
+  setBookSize(window.innerWidth, window.innerHeight);
+
+  // Pre-render first 4 pages
+  await Promise.all([renderToCache(1), renderToCache(2), renderToCache(3), renderToCache(4)]);
+
+  showSpread(0, false);
+
+  const loader = document.getElementById('loader');
+  loader.style.opacity = '0';
+  setTimeout(() => loader.style.display = 'none', 800);
 }
 
-function updatePageInfo() {
-  document.getElementById('page-info').textContent = `${currentPage} / ${totalPages}`;
-  document.getElementById('page-input').value = currentPage;
+// ── Render page to offscreen bitmap ──────────────────────
+async function renderToCache(num) {
+  if (!num || num > totalPages || pageCache[num]) return;
+  const page = await pdf.getPage(num);
+  const vp   = page.getViewport({ scale: SCALE });
+  const oc   = new OffscreenCanvas(vp.width, vp.height);
+  await page.render({ canvasContext: oc.getContext('2d'), viewport: vp }).promise;
+  pageCache[num] = await createImageBitmap(oc);
 }
 
-// ── Navigation ────────────────────────────────────────────
-function goToPage(num) {
-  const n = Math.max(1, Math.min(totalPages, num));
-  const el = pageElements[n];
-  if (!el) return;
-  const scrollEl = document.getElementById('scroll-container');
-  scrollEl.scrollTo({ top: el.offsetTop - 60, behavior: 'smooth' });
-  currentPage = n;
-  updatePageInfo();
+// ── Draw bitmap to canvas ─────────────────────────────────
+function drawToCanvas(canvas, bitmap) {
+  canvas.width  = Math.round(pageW * window.devicePixelRatio);
+  canvas.height = Math.round(pageH * window.devicePixelRatio);
+  canvas.style.width  = pageW + 'px';
+  canvas.style.height = pageH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (bitmap) ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  else { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 }
 
-document.getElementById('btn-prev').addEventListener('click', () => goToPage(currentPage - 1));
-document.getElementById('btn-next').addEventListener('click', () => goToPage(currentPage + 1));
+// ── Show spread (no animation) ────────────────────────────
+function showSpread(s, animate) {
+  spread = Math.max(0, Math.min(totalSpreads - 1, s));
+  const leftNum  = spread * 2 + 1;
+  const rightNum = spread * 2 + 2;
 
-document.getElementById('page-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') goToPage(parseInt(e.target.value));
+  drawToCanvas(canvasL, pageCache[leftNum]  || null);
+  drawToCanvas(canvasR, pageCache[rightNum] || null);
+
+  flipCont.style.transform = 'rotateY(0deg)';
+  flipCont.style.transition = 'none';
+
+  updateUI();
+  preloadAhead(spread);
+}
+
+// ── Preload surrounding pages ──────────────────────────────
+function preloadAhead(s) {
+  [s*2+3, s*2+4, s*2+5, s*2+6].forEach(n => {
+    if (n >= 1 && n <= totalPages && !pageCache[n]) renderToCache(n);
+  });
+}
+
+// ── Page flip animation ───────────────────────────────────
+async function flipForward() {
+  if (isFlipping || spread >= totalSpreads - 1) return;
+  isFlipping = true;
+
+  const nextSpread  = spread + 1;
+  const flipFrontNum = spread * 2 + 2;   // current right page = front of flipping leaf
+  const flipBackNum  = nextSpread * 2 + 1; // next left page = back of flipping leaf
+  const newRightNum  = nextSpread * 2 + 2;
+
+  // Ensure pages are cached
+  await Promise.all([
+    renderToCache(flipFrontNum),
+    renderToCache(flipBackNum),
+    renderToCache(newRightNum),
+  ]);
+
+  // Setup flip: front = current right, back = next left
+  drawToCanvas(canvasFF, pageCache[flipFrontNum] || null);
+  drawToCanvas(canvasFB, pageCache[flipBackNum]  || null);
+  drawToCanvas(canvasR,  pageCache[newRightNum]  || null);
+
+  // flip-container starts at right side of left page, rotates to left
+  flipCont.style.transformOrigin = 'left center';
+  flipCont.style.left = pageW + 'px';
+  flipCont.style.transition = 'none';
+  flipCont.style.transform = 'rotateY(0deg)';
+
+  requestAnimationFrame(() => {
+    flipCont.style.transition = `transform ${FLIP_MS}ms cubic-bezier(0.4,0,0.2,1)`;
+    flipCont.style.transform  = 'rotateY(-180deg)';
+  });
+
+  setTimeout(() => {
+    spread = nextSpread;
+    drawToCanvas(canvasL, pageCache[spread * 2 + 1] || null);
+    flipCont.style.transition = 'none';
+    flipCont.style.transform  = 'rotateY(0deg)';
+    isFlipping = false;
+    updateUI();
+    preloadAhead(spread);
+  }, FLIP_MS);
+}
+
+async function flipBackward() {
+  if (isFlipping || spread <= 0) return;
+  isFlipping = true;
+
+  const prevSpread   = spread - 1;
+  const flipFrontNum = spread * 2 + 1;       // current left = front of flipping leaf
+  const flipBackNum  = prevSpread * 2 + 2;   // prev right = back of flipping leaf
+  const newLeftNum   = prevSpread * 2 + 1;
+
+  await Promise.all([
+    renderToCache(flipFrontNum),
+    renderToCache(flipBackNum),
+    renderToCache(newLeftNum),
+  ]);
+
+  drawToCanvas(canvasFF, pageCache[flipFrontNum] || null);
+  drawToCanvas(canvasFB, pageCache[flipBackNum]  || null);
+  drawToCanvas(canvasL,  pageCache[newLeftNum]   || null);
+
+  // Starts fully flipped (from right side), animates to 0
+  flipCont.style.transformOrigin = 'left center';
+  flipCont.style.left = pageW + 'px';
+  flipCont.style.transition = 'none';
+  flipCont.style.transform = 'rotateY(-180deg)';
+
+  requestAnimationFrame(() => {
+    flipCont.style.transition = `transform ${FLIP_MS}ms cubic-bezier(0.4,0,0.2,1)`;
+    flipCont.style.transform  = 'rotateY(0deg)';
+  });
+
+  setTimeout(() => {
+    spread = prevSpread;
+    drawToCanvas(canvasR, pageCache[spread * 2 + 2] || null);
+    flipCont.style.transition = 'none';
+    isFlipping = false;
+    updateUI();
+    preloadAhead(spread);
+  }, FLIP_MS);
+}
+
+// ── UI update ─────────────────────────────────────────────
+function updateUI() {
+  const leftNum  = spread * 2 + 1;
+  const rightNum = spread * 2 + 2;
+  document.getElementById('pageinfo').textContent =
+    rightNum <= totalPages
+      ? `${leftNum} – ${rightNum} / ${totalPages}`
+      : `${leftNum} / ${totalPages}`;
+  document.getElementById('progress').style.width =
+    Math.round((spread / (totalSpreads - 1)) * 100) + '%';
+}
+
+// ── Scroll to flip ────────────────────────────────────────
+let scrollAcc = 0;
+let hinted = false;
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  scrollAcc += e.deltaY;
+  if (scrollAcc > 80) {
+    scrollAcc = 0;
+    flipForward();
+    if (!hinted) { document.getElementById('hint').style.opacity = '0'; hinted = true; }
+  } else if (scrollAcc < -80) {
+    scrollAcc = 0;
+    flipBackward();
+  }
+}, { passive: false });
+
+// ── Keyboard ──────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown'  || e.key === ' ') flipForward();
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') flipBackward();
 });
 
-// Keyboard navigation
-window.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToPage(currentPage + 1);
-  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goToPage(currentPage - 1);
+// ── Buttons ───────────────────────────────────────────────
+document.getElementById('btn-next').addEventListener('click', flipForward);
+document.getElementById('btn-prev').addEventListener('click', flipBackward);
+
+// ── Touch swipe ───────────────────────────────────────────
+let touchX = null;
+window.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+window.addEventListener('touchend',   e => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (dx < -40) flipForward();
+  if (dx >  40) flipBackward();
+  touchX = null;
+}, { passive: true });
+
+// ── Resize ────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  if (!pdf) return;
+  setBookSize(window.innerWidth, window.innerHeight);
+  showSpread(spread, false);
 });
 
 // ── Start ─────────────────────────────────────────────────
-loadPDF();
+init().catch(err => {
+  document.getElementById('loader-pct').textContent = 'PDF nicht gefunden';
+  console.error(err);
+});
 </script>
 </body>
 </html>
