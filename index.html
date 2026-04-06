@@ -5,365 +5,391 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Konterfei</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#060606; width:100vw; height:100vh; overflow:hidden; }
-canvas { display:block; }
-#hint {
-  position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
-  color:rgba(255,255,255,0.22); font-size:10px; letter-spacing:0.18em;
-  font-family:'Helvetica Neue',sans-serif; text-transform:uppercase;
-  pointer-events:none; transition:opacity 1.5s;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111;
+  --text: rgba(255,255,255,0.5);
+  --accent: rgba(255,255,255,0.12);
 }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+#header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 100;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+}
+
+#title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+
+#page-info {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Progress bar ────────────────────────────────────────── */
+#progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.3);
+  width: 0%;
+  z-index: 101;
+  transition: width 0.1s;
+}
+
+/* ── Scroll container ────────────────────────────────────── */
+#scroll-container {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  padding: 64px 0 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+#scroll-container::-webkit-scrollbar { width: 3px; }
+#scroll-container::-webkit-scrollbar-track { background: transparent; }
+#scroll-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ── Pages ───────────────────────────────────────────────── */
+#pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.page-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.page-wrapper.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-wrapper canvas {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  background: #fff;
+}
+
+/* ── Loader ──────────────────────────────────────────────── */
 #loader {
-  position:fixed; inset:0; background:#060606; z-index:10;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-  transition:opacity 0.9s;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 200;
+  transition: opacity 0.8s;
 }
-#lt { color:rgba(255,255,255,0.35); font-size:11px; letter-spacing:0.3em; text-transform:uppercase; font-family:'Helvetica Neue',sans-serif; }
-#lbw { width:110px; height:1px; background:rgba(255,255,255,0.1); }
-#lb  { height:1px; background:rgba(255,255,255,0.4); width:0%; transition:width 0.1s; }
+
+#loader-title {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+}
+
+#loader-track {
+  width: 140px;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+#loader-fill {
+  height: 1px;
+  background: rgba(255,255,255,0.35);
+  width: 0%;
+  transition: width 0.15s;
+}
+
+#loader-pages {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.2);
+}
+
+/* ── Footer nav ──────────────────────────────────────────── */
+#footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  background: linear-gradient(to top, var(--bg), transparent);
+  z-index: 100;
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 8px 16px;
+  transition: color 0.2s;
+}
+.nav-btn:hover { color: rgba(255,255,255,0.7); }
+
+#page-input {
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
+  font-size: 11px;
+  font-family: inherit;
+  width: 48px;
+  text-align: center;
+  padding: 4px 0;
+  outline: none;
+}
+#page-input:focus { border-bottom-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="hint">scroll to open · drag to rotate</div>
-<div id="loader"><div id="lt">Konterfei</div><div id="lbw"><div id="lb"></div></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<div id="progress-bar"></div>
+
+<div id="header">
+  <div id="title">Konterfei</div>
+  <div id="page-info">— / —</div>
+</div>
+
+<div id="scroll-container">
+  <div id="pages"></div>
+</div>
+
+<div id="footer">
+  <button class="nav-btn" id="btn-prev">← Prev</button>
+  <input type="number" id="page-input" min="1" placeholder="—">
+  <button class="nav-btn" id="btn-next">Next →</button>
+</div>
+
+<div id="loader">
+  <div id="loader-title">Konterfei</div>
+  <div id="loader-track"><div id="loader-fill"></div></div>
+  <div id="loader-pages">Loading…</div>
+</div>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-// ── Renderer ──────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
-renderer.outputEncoding = THREE.sRGBEncoding;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060606);
+// ── Config ────────────────────────────────────────────────
+// PDF Dateiname – muss im gleichen Ordner wie index.html liegen
+const PDF_FILE = 'konterfei.pdf';
+const RENDER_SCALE = 2.0; // höher = schärfer, aber langsamer
 
-const camera = new THREE.PerspectiveCamera(40, 1, 0.001, 100);
-camera.position.set(0, 0.3, 0.8);
-camera.lookAt(0, 0, 0);
+// ── State ─────────────────────────────────────────────────
+let pdfDoc = null;
+let totalPages = 0;
+let currentPage = 1;
+const renderedPages = new Set();
+const pageElements = [];
 
-// ── Lights ────────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dL = new THREE.DirectionalLight(0xffffff, 1.6);
-dL.position.set(2, 4, 3); scene.add(dL);
-const pL1 = new THREE.PointLight(0xc0d0ff, 3.0, 6);
-pL1.position.set(-2, 2, 2); scene.add(pL1);
-const pL2 = new THREE.PointLight(0xffe8b0, 2.5, 6);
-pL2.position.set(2, -1, 2); scene.add(pL2);
-
-// Manual env (r128 safe)
-(function() {
-  const sz = 64, d = new Uint8Array(sz * sz * 4);
-  for (let y = 0; y < sz; y++) for (let x = 0; x < sz; x++) {
-    const i = (y*sz+x)*4, t = y/sz;
-    d[i]=15+t*25; d[i+1]=15+t*25; d[i+2]=25+t*35; d[i+3]=255;
-  }
-  const tex = new THREE.DataTexture(d, sz, sz, THREE.RGBAFormat);
-  tex.needsUpdate = true;
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromEquirectangular(tex).texture;
-  pmrem.dispose();
-})();
-
-function resize() {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-}
-resize();
-window.addEventListener('resize', resize);
-
-// ── GLB Loader with async ImageBitmap textures ────────────────────────────────
-async function loadGLB(url, onProgress) {
-  const resp = await fetch(url);
-  const total = +resp.headers.get('content-length') || 0;
-  const reader = resp.body.getReader();
-  let received = 0;
-  const chunks = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value); received += value.length;
-    if (total) onProgress(received / total);
-  }
-  const buf = await new Blob(chunks).arrayBuffer();
-  const dv = new DataView(buf);
-  let json, bin;
-  let off = 12;
-  while (off < dv.byteLength - 8) {
-    const len = dv.getUint32(off, true), type = dv.getUint32(off+4, true);
-    if (type === 0x4E4F534A) json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, off+8, len)));
-    if (type === 0x004E4942) bin = buf.slice(off+8, off+8+len);
-    off += 8 + len;
-  }
-
-  const bvs=json.bufferViews||[], accs=json.accessors||[];
-  const imgs=json.images||[], texDefs=json.textures||[];
-  const matDefs=json.materials||[], meshDefs=json.meshes||[], nodeDefs=json.nodes||[];
-  const cm={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
-  const sm={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
-
-  function getAcc(i) {
-    const a=accs[i], bv=bvs[a.bufferView], o=(bv.byteOffset||0)+(a.byteOffset||0);
-    return new cm[a.componentType](bin, o, a.count*sm[a.type]);
-  }
-
-  // Load ALL textures as ImageBitmap before building scene
-  const bitmaps = await Promise.all(texDefs.map(async t => {
-    const img = imgs[t.source];
-    if (!img || img.bufferView === undefined) return null;
-    const bv = bvs[img.bufferView];
-    const blob = new Blob([new Uint8Array(bin, bv.byteOffset||0, bv.byteLength)], { type: img.mimeType||'image/jpeg' });
-    try { return await createImageBitmap(blob, { colorSpaceConversion: 'none' }); }
-    catch(e) { console.warn('tex fail:', img.name, e); return null; }
-  }));
-
-  const threeTex = bitmaps.map(bm => {
-    if (!bm) return null;
-    const tex = new THREE.CanvasTexture(bm);
-    tex.flipY = false; tex.encoding = THREE.sRGBEncoding; tex.needsUpdate = true;
-    return tex;
+// ── Intersection Observer für lazy rendering ───────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const wrapper = entry.target;
+      wrapper.classList.add('visible');
+      const pageNum = parseInt(wrapper.dataset.page);
+      if (!renderedPages.has(pageNum)) renderPage(pageNum);
+    }
   });
+}, { rootMargin: '200px 0px', threshold: 0.01 });
 
-  const threeMats = matDefs.map(m => {
-    const pbr = m.pbrMetallicRoughness || {};
-    const mat = new THREE.MeshStandardMaterial({ name: m.name||'' });
-    mat.metalness = pbr.metallicFactor ?? 0;
-    mat.roughness = pbr.roughnessFactor ?? 0.5;
-    if (pbr.baseColorFactor) mat.color.setRGB(...pbr.baseColorFactor.slice(0,3));
-    if (pbr.baseColorTexture != null) {
-      const t = threeTex[pbr.baseColorTexture.index];
-      if (t) { mat.map = t; mat.needsUpdate = true; }
-    }
-    const n = (m.name||'').toLowerCase();
-    if (n.includes('flap') || n==='material.001' || n==='material.002') {
-      mat.metalness=0.95; mat.roughness=0.07; mat.envMapIntensity=4.0;
-    } else if (n.includes('spine')) {
-      mat.metalness=0.7; mat.roughness=0.2;
-    }
-    return mat;
-  });
+// ── Load PDF ──────────────────────────────────────────────
+async function loadPDF() {
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      url: PDF_FILE,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
+    });
 
-  function primToMesh(p) {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(getAcc(p.attributes.POSITION)), 3));
-    if (p.attributes.NORMAL !== undefined)
-      geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(getAcc(p.attributes.NORMAL)), 3));
-    if (p.attributes.TEXCOORD_0 !== undefined)
-      geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(getAcc(p.attributes.TEXCOORD_0)), 2));
-    if (p.indices !== undefined) {
-      const idx = getAcc(p.indices);
-      geo.setIndex(new THREE.BufferAttribute(idx instanceof Uint32Array ? new Uint32Array(idx) : new Uint16Array(idx), 1));
-    }
-    if (!geo.attributes.normal) geo.computeVertexNormals();
-    return new THREE.Mesh(geo, p.material != null ? threeMats[p.material] : new THREE.MeshStandardMaterial());
+    loadingTask.onProgress = (data) => {
+      if (data.total) {
+        const pct = Math.round(data.loaded / data.total * 100);
+        document.getElementById('loader-fill').style.width = pct + '%';
+        document.getElementById('loader-pages').textContent = `${pct}%`;
+      }
+    };
+
+    pdfDoc = await loadingTask.promise;
+    totalPages = pdfDoc.numPages;
+
+    document.getElementById('loader-pages').textContent = `${totalPages} Seiten`;
+    document.getElementById('page-input').max = totalPages;
+    document.getElementById('page-input').placeholder = '1';
+
+    buildPageStructure();
+
+    const loader = document.getElementById('loader');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.style.display = 'none', 800);
+
+  } catch (err) {
+    document.getElementById('loader-pages').textContent = 'PDF nicht gefunden';
+    console.error('PDF load error:', err);
   }
-
-  // Build node tree – preserving parent/child hierarchy from GLB
-  const nodeObjects = {};
-  function buildNode(i) {
-    const nd = nodeDefs[i], obj = new THREE.Group();
-    obj.name = nd.name || '';
-    if (nd.matrix) { obj.matrix.fromArray(nd.matrix); obj.matrix.decompose(obj.position, obj.quaternion, obj.scale); }
-    else {
-      if (nd.translation) obj.position.fromArray(nd.translation);
-      if (nd.rotation)    obj.quaternion.fromArray(nd.rotation);
-      if (nd.scale)       obj.scale.fromArray(nd.scale);
-    }
-    if (nd.mesh != null) meshDefs[nd.mesh].primitives.forEach(p => obj.add(primToMesh(p)));
-    (nd.children||[]).forEach(ci => obj.add(buildNode(ci)));
-    nodeObjects[i] = obj;
-    return obj;
-  }
-
-  const root = new THREE.Group();
-  (json.scenes[json.scene||0].nodes||[]).forEach(ni => root.add(buildNode(ni)));
-  return { root, nodeObjects, nodeDefs };
 }
 
-// ── Book nodes ────────────────────────────────────────────────────────────────
-let wrapper = null;
-let coverNode = null, backCoverNode = null;
-let indexFlapNode = null, backFlapNode = null;
-const pageNodes = [];
-const PAGE_NAMES = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','P9','P10'];
+// ── Build empty page slots ────────────────────────────────
+async function buildPageStructure() {
+  const container = document.getElementById('pages');
 
-// Spine is at local X=0 in the GLB coordinate space.
-// Cover opens by rotating around the Z-axis at the spine edge.
-// We achieve this by wrapping each part in a pivot group at X=0.
+  // Get first page to know dimensions
+  const firstPage = await pdfDoc.getPage(1);
+  const viewport = firstPage.getViewport({ scale: 1 });
+  const aspectRatio = viewport.height / viewport.width;
 
-function makePivotWrapper(obj, pivotX) {
-  // Create a pivot group positioned at the spine edge
-  const pivot = new THREE.Group();
-  pivot.position.x = pivotX;
-  // Shift the object so its hinge edge aligns with the pivot
-  obj.position.x -= pivotX;
-  pivot.add(obj);
-  return pivot;
+  for (let i = 1; i <= totalPages; i++) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'page-wrapper';
+    wrapper.dataset.page = i;
+
+    // Placeholder canvas with correct aspect ratio
+    const canvas = document.createElement('canvas');
+    canvas.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
+    wrapper.appendChild(canvas);
+    container.appendChild(wrapper);
+    pageElements[i] = wrapper;
+    observer.observe(wrapper);
+  }
+
+  // Render first 3 pages immediately
+  for (let i = 1; i <= Math.min(3, totalPages); i++) {
+    pageElements[i].classList.add('visible');
+    renderPage(i);
+  }
+
+  setupScrollTracking();
 }
 
-loadGLB('konterfei.glb', p => {
-  document.getElementById('lb').style.width = Math.round(p * 100) + '%';
-}).then(({ root, nodeObjects, nodeDefs }) => {
+// ── Render single page ─────────────────────────────────────
+async function renderPage(pageNum) {
+  if (renderedPages.has(pageNum) || !pdfDoc) return;
+  renderedPages.add(pageNum);
 
-  wrapper = new THREE.Group();
-  scene.add(wrapper);
+  try {
+    const page = await pdfDoc.getPage(pageNum);
+    const wrapper = pageElements[pageNum];
+    const canvas = wrapper.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
 
-  // Collect named nodes
-  const namedNodes = {};
-  root.traverse(o => { if (o.name) namedNodes[o.name] = o; });
+    const containerWidth = Math.min(wrapper.clientWidth || 680, 680);
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = (containerWidth / viewport.width) * RENDER_SCALE;
+    const scaledViewport = page.getViewport({ scale });
 
-  coverNode     = namedNodes['Cover'];
-  backCoverNode = namedNodes['Back Cover'];
-  indexFlapNode = namedNodes['Index flap'];
-  backFlapNode  = namedNodes['Back Flap'];
+    canvas.width = scaledViewport.width;
+    canvas.height = scaledViewport.height;
 
-  PAGE_NAMES.forEach(n => { if (namedNodes[n]) pageNodes.push(namedNodes[n]); });
-  pageNodes.sort((a, b) => b.position.y - a.position.y);
-  pageNodes.forEach(p => {
-    p.userData.basePos = p.position.clone();
-    p.userData.baseRotZ = p.rotation.z;
-  });
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+  } catch (err) {
+    renderedPages.delete(pageNum);
+    console.warn('Render error page', pageNum, err);
+  }
+}
 
-  wrapper.add(root);
+// ── Scroll tracking ───────────────────────────────────────
+function setupScrollTracking() {
+  const scrollEl = document.getElementById('scroll-container');
 
-  // Center & scale
-  const box = new THREE.Box3().setFromObject(wrapper);
-  const cen = box.getCenter(new THREE.Vector3());
-  const sz  = box.getSize(new THREE.Vector3());
-  wrapper.position.sub(cen);
-  wrapper.scale.setScalar(0.5 / Math.max(sz.x, sz.y, sz.z));
+  scrollEl.addEventListener('scroll', () => {
+    const scrollTop = scrollEl.scrollTop;
+    const scrollHeight = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
 
-  const el = document.getElementById('loader');
-  el.style.opacity = '0';
-  setTimeout(() => el.style.display = 'none', 900);
+    // Progress bar
+    document.getElementById('progress-bar').style.width = (progress * 100) + '%';
 
-}).catch(e => console.error('Load error:', e));
+    // Current page detection
+    for (let i = totalPages; i >= 1; i--) {
+      const el = pageElements[i];
+      if (!el) continue;
+      if (el.offsetTop - 80 <= scrollTop) {
+        currentPage = i;
+        break;
+      }
+    }
+    updatePageInfo();
+  }, { passive: true });
+}
 
-// ── Input ─────────────────────────────────────────────────────────────────────
-let scroll = 0, tScroll = 0;
-let rotY = -0.25, rotX = 0.35, tRotY = -0.25, tRotX = 0.35;
-let isDrag = false, lx = 0, ly = 0, time = 0, hinted = false;
+function updatePageInfo() {
+  document.getElementById('page-info').textContent = `${currentPage} / ${totalPages}`;
+  document.getElementById('page-input').value = currentPage;
+}
 
-window.addEventListener('wheel', e => {
-  e.preventDefault();
-  tScroll = Math.max(0, Math.min(1, tScroll + e.deltaY * 0.00055));
-  if (!hinted) { document.getElementById('hint').style.opacity = '0'; hinted = true; }
-}, { passive: false });
+// ── Navigation ────────────────────────────────────────────
+function goToPage(num) {
+  const n = Math.max(1, Math.min(totalPages, num));
+  const el = pageElements[n];
+  if (!el) return;
+  const scrollEl = document.getElementById('scroll-container');
+  scrollEl.scrollTo({ top: el.offsetTop - 60, behavior: 'smooth' });
+  currentPage = n;
+  updatePageInfo();
+}
 
-window.addEventListener('mousedown', e => { isDrag=true; lx=e.clientX; ly=e.clientY; });
-window.addEventListener('mouseup', () => isDrag=false);
-window.addEventListener('mousemove', e => {
-  if (!isDrag) return;
-  tRotY += (e.clientX-lx)*0.009; tRotX += (e.clientY-ly)*0.006;
-  tRotX = Math.max(-0.7, Math.min(0.7, tRotX));
-  lx=e.clientX; ly=e.clientY;
+document.getElementById('btn-prev').addEventListener('click', () => goToPage(currentPage - 1));
+document.getElementById('btn-next').addEventListener('click', () => goToPage(currentPage + 1));
+
+document.getElementById('page-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') goToPage(parseInt(e.target.value));
 });
-window.addEventListener('touchstart', e => { isDrag=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY; }, {passive:true});
-window.addEventListener('touchend', () => isDrag=false);
-window.addEventListener('touchmove', e => {
-  tRotY += (e.touches[0].clientX-lx)*0.009;
-  tRotX += (e.touches[0].clientY-ly)*0.006;
-  tRotX = Math.max(-0.7, Math.min(0.7, tRotX));
-  lx=e.touches[0].clientX; ly=e.touches[0].clientY;
-}, {passive:true});
 
-// ── Easing ────────────────────────────────────────────────────────────────────
-function eio(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
-function remap(v, lo, hi) { return Math.max(0, Math.min(1, (v-lo)/(hi-lo))); }
+// Keyboard navigation
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToPage(currentPage + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goToPage(currentPage - 1);
+});
 
-// ── Animation ─────────────────────────────────────────────────────────────────
-// The book opens like a real book:
-// - Cover + Index flap rotate around the LEFT edge (spine at X=0 in local space)
-// - Back Cover + Back Flap rotate the other way
-// - Pages lift and fan slightly
-//
-// Rotation axis: Z (the spine runs along Z in this model)
-// Cover is at local X: 0 → 0.162, so spine edge is at X=0 → rotate around Z at X=0
-// ─────────────────────────────────────────────────────────────────────────────
-
-function animate() {
-  requestAnimationFrame(animate);
-  time += 0.004;
-
-  scroll += (tScroll - scroll) * 0.05;
-  rotY   += (tRotY - rotY) * 0.07;
-  rotX   += (tRotX - rotX) * 0.07;
-  if (!isDrag) tRotY += Math.sin(time * 0.18) * 0.0004;
-
-  if (!wrapper) { renderer.render(scene, camera); return; }
-
-  wrapper.rotation.y = rotY;
-  wrapper.rotation.x = rotX;
-
-  // ── Cover opens (rotates around Z at spine edge X=0) ─────────────────────
-  // Cover X range: 0 → 0.162, spine at local X=0
-  // Rotation: negative Z = opens upward/left when viewed from front
-  //
-  // HOW IT WORKS:
-  // We shift the cover's pivot to X=0 (its spine edge), then rotate around Z.
-  // Since the GLB node origin may not be at X=0, we compensate with position.
-  //
-  // ── Öffnungswinkel: 0.9 = ~162° (fast ganz auf) ──────────────────────────
-  const coverAngle = eio(remap(scroll, 0, 0.35)) * Math.PI * 0.9;
-
-  if (coverNode) {
-    // Spine edge of cover is at world X = coverNode.position.x (≈ -0.08 after centering)
-    // Rotate around Z at that edge
-    const spineX = -0.08; // local position of spine in original GLB coords (before centering)
-    coverNode.position.x = spineX + Math.cos(coverAngle) * 0.08;
-    coverNode.position.y = 0.016 + Math.sin(coverAngle) * 0.08;
-    coverNode.rotation.z = -coverAngle;
-  }
-
-  if (indexFlapNode) {
-    // Index flap is child of Cover, has its own local rotation
-    // It opens independently after the cover starts
-    const flapAngle = eio(remap(scroll, 0.1, 0.45)) * Math.PI * 0.75;
-    indexFlapNode.rotation.z = flapAngle;
-  }
-
-  if (backCoverNode) {
-    const backAngle = eio(remap(scroll, 0.05, 0.40)) * Math.PI * 0.9;
-    const spineX = -0.08;
-    backCoverNode.position.x = spineX + Math.cos(-backAngle) * 0.08;
-    backCoverNode.position.y = -0.016 + Math.sin(-backAngle) * 0.08;
-    backCoverNode.rotation.z = backAngle;
-  }
-
-  if (backFlapNode) {
-    const flapAngle = eio(remap(scroll, 0.15, 0.50)) * Math.PI * 0.75;
-    backFlapNode.rotation.z = -flapAngle;
-  }
-
-  // ── Pages fan open ────────────────────────────────────────────────────────
-  const n = pageNodes.length;
-  pageNodes.forEach((pg, i) => {
-    const bp = pg.userData.basePos;
-    if (!bp) return;
-    const delay = (i / n) * 0.25;
-    const t = eio(remap(scroll, 0.30 + delay, 0.60 + delay));
-    // Pages lift upward and fan slightly around Z
-    pg.position.y = bp.y + t * 0.025 * (n - i) / n;
-    pg.rotation.z = -t * 0.12 * (i / n);
-  });
-
-  // ── Camera adjusts as book opens ─────────────────────────────────────────
-  camera.position.z = 0.80 + eio(remap(scroll, 0.2, 1.0)) * 0.2;
-  camera.position.y = 0.30 - eio(remap(scroll, 0.2, 1.0)) * 0.1;
-
-  // ── Foil shimmer ──────────────────────────────────────────────────────────
-  pL1.position.x = Math.sin(time * 0.36) * 2.5;
-  pL1.position.y = Math.cos(time * 0.25) * 2.0;
-  pL2.position.x = Math.cos(time * 0.31) * 2.0;
-
-  renderer.render(scene, camera);
-}
-animate();
+// ── Start ─────────────────────────────────────────────────
+loadPDF();
 </script>
 </body>
 </html>
